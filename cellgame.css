@@ -1,0 +1,129 @@
+[v-cloak] {
+  display: none;
+}
+* {
+  -webkit-appearance: none;
+  -webkit-tap-highlight-color: rgba(0,0,0,0);
+  box-sizing: border-box;
+  font-family: "Trebuchet MS", sans-serif;
+  font-size: 6vmin;
+  transition: all .2s ease;
+}
+body {
+  padding: 0;
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  background-color: white;
+}
+button {
+  border: 0;
+  padding: 3vmin;
+}
+td {
+  text-align: center;
+  vertical-align: middle;
+}
+p {
+  margin: 1vmin;
+}
+mark {
+  color: hsla(0, 0%, 0%, 0.3);
+  background-color: transparent;
+}
+sup {
+  font-size: 0.8em;
+}
+.hide {
+  opacity: 0;
+  visibility: hidden;
+}
+.show {
+  opacity: 1;
+  visibility: visible;
+}
+.play-field {
+  width: 100vmin;
+  height: 100vmin;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translateX(-50%) translateY(-50%);
+  border-radius: 3vmin;
+}
+#panel {
+  table-layout: fixed;
+  border-spacing: 2vmin;
+  padding: 1vmin;
+}
+#mask {
+  background-color: hsla(0, 0%, 100%, 0.8);
+  z-index: 999;
+}
+#stat {
+  z-index: 9999;
+}
+.item {
+  border-radius: 3vmin;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  cursor: pointer;
+}
+.item.active, .item:active {
+  -webkit-filter: hue-rotate(180deg) invert(100%);
+  filter: hue-rotate(180deg) invert(100%);
+}
+#panel .item {
+  font-size: 10vmin;
+}
+#mask td {
+  font-size: 12vmin;
+}
+.hud {
+  padding: 3vmin;
+  line-height: 1.4;
+}
+.hud table {
+  width: 100%;
+  height: 100%;
+}
+.hud .item:active {
+  -webkit-filter: hue-rotate(180deg) invert(80%);
+  filter: hue-rotate(180deg) invert(80%);
+}
+#hud1 {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+#hud2 {
+  position: absolute;
+}
+@media only screen and (orientation: landscape) {
+  #hud1 {
+    width: calc(50vmax - 50vmin);
+    height: 100vmin;
+  }
+  #hud2 {
+    top: 0;
+    left: calc(50% + 50vmin);
+    width: calc(50vmax - 50vmin);
+    height: 100vmin;
+  }
+}
+@media only screen and (orientation: portrait) {
+  #hud1 {
+    width: 100vmin;
+    height: calc(50vmax - 50vmin);
+  }
+  #hud2 {
+    top: calc(50% + 50vmin);
+    left: 0;
+    width: 100vmin;
+    height: calc(50vmax - 50vmin);
+  }
+}
