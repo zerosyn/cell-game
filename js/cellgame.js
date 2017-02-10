@@ -85,77 +85,18 @@ Object.defineProperty(Array.prototype, "commonFactors", {
   Math.randomInt = function(min, max) {
     return Math.floor(Math.random() * (max + 1 - min)) + min;
   }
+  Math.randomIntP = function(min, max, prime_probability) {
+    var n, is_prime = Math.random() * prime_probability > 0.5;
+    do{
+      n = Math.randomInt(min, max);
+    } while((primes.indexOf(n) === -1) ^ is_prime);
+    return n;
+  }
 }());
 
 
 
-window.Stat = (function(){
 
-  var ls = window.localStorage;
-  var ranking_count = 3;
-
-  var Data = function(namespace){
-    this.namespace = namespace;
-    this.reset();
-  }
-
-  Data.prototype.reset = function(){
-    this.score_ranking = [0];
-    this.best_combo = 0;
-    this.best_combo_detail = {};
-    this.max_gcd = 0;
-    this.max_power = 0;
-    this.max_turn = 0;
-    this.total_round = 0;
-  }
-
-  Data.keys = Object.getOwnPropertyNames(new Data());
-
-  Data.load = function(namespace){
-    var stat = new Data(namespace);
-    Data.keys.forEach(function(key){
-      var value = ls.getItem(namespace + '.' + key);
-      if( value !== null && value !== undefined ){
-        try{
-          value = JSON.parse(value);
-        } catch(err) {}
-        stat[key] = value;
-      }
-    });
-    return stat;
-  }
-
-  Data.prototype.set = function(key, value){
-    this[key] = value;
-    if( typeof value == 'object' ){
-      value = JSON.stringify( value );
-    }
-    ls.setItem(this.namespace + '.' + key, value);
-  };
-  Data.prototype.checkBestAndSet = function(key, value){
-    if( this[key] >= value ) return false;
-    this.set(key, value);
-    return true;
-  };
-  Data.prototype.checkRankingAndSet = function(key, value){
-    var ranking = this[key];
-    ranking.push(value);
-    ranking = ranking.filter(function(v){ return v > 0; });
-    ranking.sortDesc().splice(ranking_count - 1, ranking.length);
-    this.set(key, ranking);
-  };
-  Data.prototype.inc = function(key, value){
-    this.set(key, this[key] + value);
-  };
-  Data.prototype.clear = function(){
-    this.reset();
-    Data.keys.forEach(function(key){
-      ls.removeItem(this.namespace + '.' + key)
-    });
-  };
-
-  return Data;
-}());
 
 
 
@@ -171,9 +112,21 @@ var Game = function(){
   this.score = 0;
   this.turn = 0;
   this.prompt = '';
+
+  var stat_init = {
+    // score_ranking: [0],
+    max_score: 0,
+    best_combo: 0,
+    best_combo_detail: {},
+    max_gcd: 0,
+    max_power: 0,
+    max_turn: 0,
+    total_round: 0
+  };
   this.stat = {
-    2: Stat.load(2),
-    3: Stat.load(3)
+    2: Stat.load(2, stat_init),
+    3: Stat.load(3, stat_init),
+    achievement: Achievements.data
   };
 }
 Game.prototype.reset = function(){
@@ -192,17 +145,56 @@ Game.prototype.reset = function(){
   this.turn = 0;
   this.prompt = '';
   this.check();
+  this.save();
 }
+Game.prototype.load = function(){
+  this.savedata = Stat.load('savedata', {
+    cells: [],
+    level: 2,
+    score: 0,
+    turn: 0
+  });
+  if( !this.savedata.cells || this.savedata.cells.length == 0 ){
+    return this.reset();
+  }
+  var i, j, row;
+  var cells = [];
+  for( i = 0; i < this.dimention; ++ i ){
+    row = [];
+    for( j = 0; j < this.dimention; ++ j ){
+      row.push(new Cell(i, j, this.savedata.cells[i][j]));
+    }
+    cells.push(row);
+  }
+  this.cells = cells;
+  this.level = this.savedata.level;
+  this.score = this.savedata.score;
+  this.turn = this.savedata.turn;
+  this.check();
+}
+Game.prototype.save = function(){
+  this.savedata.set('cells', this.cells.map(function(row){
+    return row.map(function(cell){
+      return cell.serialize();
+    });
+  }));
+  this.savedata.set('level', this.level);
+  this.savedata.set('score', this.score);
+  this.savedata.set('turn', this.turn);
+}
+
 Game.prototype.changeLevel = function(){
   this.level = Math.max(2, (this.level + 1) % level_limit);
-}
-Game.prototype.levelText = function(){
-  return this.level == 2 ? 'Easy' : 'Hard';
+  this.reset();
 }
 Game.prototype.numberLimit = function(){
   return this.level == 2 ? 99 : 50;
 }
-Game.prototype.changeScore = function(gcd, power){
+Game.prototype.flatCells = function(){
+  return this.cells.reduce(function(arr, row){ return arr.concat(row); }, []);
+}
+Game.prototype.changeScore = function(gcd, length){
+  var power = length - 1;
   var combo = Math.pow(gcd, power);
   this.score += combo;
 
@@ -210,12 +202,22 @@ Game.prototype.changeScore = function(gcd, power){
   if( stat.checkBestAndSet('best_combo', combo) ){
     stat.set('best_combo_detail', {gcd: gcd, power: power});
   }
+  stat.checkBestAndSet('max_score', this.score);
   stat.checkBestAndSet('max_gcd', gcd);
   stat.checkBestAndSet('max_power', power);
+  Achievements.trigger('score', {score: combo});
+}
+Game.prototype.clearScore = function(){
+  this.stat[2].clear();
+  this.stat[3].clear();
 }
 Game.prototype.nextTurn = function(){
   ++ this.turn;
   this.stat[this.level].checkBestAndSet('max_turn', this.turn);
+  Achievements.trigger('board', {cells: this.flatCells()});
+  Achievements.trigger('accumulate', {turn: this.turn});
+  this.save();
+  this.check();
 }
 Game.prototype.resetPrompt = function(){
   this.prompt = '';
@@ -274,8 +276,9 @@ Game.prototype.notCheckmate = function(){
 Game.prototype.check = function(){
   if( !this.notCheckmate() ){
     this.gameover = true;
-    this.stat[this.level].checkRankingAndSet('score_ranking', this.score);
+    // this.stat[this.level].checkRankingAndSet('score_ranking', this.score);
     this.stat[this.level].inc('total_round', 1);
+    Achievements.trigger('board', {cells: this.flatCells(), gameover: true});
   }
 }
 
@@ -298,6 +301,9 @@ var Cell = function(row, col, num){
 }
 
 /* required methods */
+Cell.prototype.serialize = function(){
+  return this.number;
+}
 Cell.prototype.text = function(){
   return this.number;
 }
@@ -315,10 +321,13 @@ Cell.prototype.lightness = function(){
 
 Cell.prototype.tapped = function(){
   if( this.number != 1 ) return false;
-  Game.around(this).forEach(function(around_cell){
+  var around = Game.around(this), old = [];
+  for( var around_cell of around ){
+    old.push(around_cell.clone());
     around_cell.tappedBy();
-  });
+  }
   this.rand();
+  Achievements.trigger('one', {old: old, new: around, self: this});
   Game.nextTurn();
 }
 Cell.prototype.tappedBy = function(cellCenter){
@@ -348,10 +357,11 @@ Cell.prototype.dragged = function(through_cells){
   if( this.number == 1 || dragging_factors.length == 0 || through_cells.length < Game.level - 1 ) return false;
 
   var gcd = dragging_factors.multiply();
+  through_cells.push(this);
+  Achievements.trigger('combo', {gcd: gcd, cells: through_cells}); // must check before cell modified
   through_cells.forEach(function(through_cell){
     through_cell.set(through_cell.number / gcd);
   });
-  this.set(this.number / gcd);
   dragging_factors = [];
   Game.changeScore(gcd, through_cells.length);
   Game.nextTurn();
@@ -374,15 +384,21 @@ Cell.prototype.rand = function(){
 Cell.prototype.isPrime = function(){
   return this.factors.length == 1;
 }
+Cell.prototype.isComposite = function(){
+  return this.factors.length > 1;
+}
 // Cell.prototype.isCoprime = function(cell2){
 //   return this.factors.every(function(v){
 //     return cell2.factors.indexOf(v) === -1;
 //   });
 // }
+Cell.prototype.clone = function(){
+  return new Cell(0, 0, this.number);
+}
 
 return Cell;
 }());
 
 
 
-Game.reset(); // 因为有依赖，必须在 Cell 定义后执行
+Game.load(); // 因为有依赖，必须在 Cell 定义后执行

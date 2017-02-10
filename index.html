@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <html lang="cn">
   <head>
-    <title>Greatest Common Divisor</title>
+    <title>{{ 'Greatest Common Divisor' | translate }}</title>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0, minimal-ui">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-title" content="G.C.D">
+    <meta name="apple-mobile-web-app-title" content="{{ 'G.C.D' | translate }}">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="msapplication-TileColor" content="#da532c">
     <meta name="msapplication-TileImage" content="mstile-144x144.png">
@@ -14,67 +14,132 @@
     <link rel="apple-touch-icon-precomposed" href="apple-touch-icon-precomposed.png">
     <link rel="shortcut icon" type="image/x-icon" href="favicon.ico">
     <link rel="manifest" href="manifest.json">
-    <link href="cellgame.css" rel="stylesheet">
+    <link rel="stylesheet" href="css/gamefont.css">
+    <link rel="stylesheet" href="css/animation.css">
+    <link rel="stylesheet" href="css/cellgame.css">
   </head>
-  <body v-cloak @touchmove.stop.prevent>
+  <body v-cloak :style="bodyStyle" @touchmove.stop.prevent>
     <div id="hud1" class="hud">
       <table class="item" :style="hudStyle">
         <tr v-show="game.prompt">
           <td>{{{ game.prompt }}}</td>
         </tr>
         <tr v-show="!game.prompt">
-          <td @click="show_stat = !show_stat">Score<br>{{ game.score }}</td>
+          <td @click="display = display == 'stat' ? 'game' : 'stat'">{{ game.score }}</td>
         </tr>
-      </table>
-    </div>
-    <table id="panel" class="play-field" :style="fieldStyle" @mouseleave="onLeave">
-      <tr class="row" v-for="(row, arr) in game.cells">
-        <td class="item" v-for="(col, cell) in arr" :class="{active: cell.active}" :style="cell | style"
-          @mousedown.prevent="onDragStart(cell)"
-          @touchstart="onDragStart(cell)"
-          @mousemove.prevent="onDrag(cell)"
-          @touchmove.stop.prevent="onDrag(cell, $event)"
-          @mouseup.prevent="onDragEnd(cell)"
-          @touchend.stop.prevent="onDragEnd(cell, $event)">{{ cell | text }}
-        </td>
-      </tr>
-    </table>
-    <table id="mask" class="play-field" :class="{show: game.gameover, hide: !game.gameover}" >
-      <tr><td>Game Over</td></tr>
-      <tr><td>
-        <button class="item" @click="game.changeLevel()" :style="levelStyle">{{ game.levelText() }}</button>
-        <button class="item" @click="game.reset()" :style="defaultStyle">Retry</button>
-      </td></tr>
-    </table>
-    <div id="stat" class="play-field hud" :class="{show: show_stat, hide: !show_stat}" :style="statStyle">
-      <table>
-        <tr>
-          <td style="width: 60%">Top Score</td>
-          <td><p v-for="score in game.stat[game.level].score_ranking">{{ score }}</p></td>
-        </tr>
-        <tr>
-          <td>Best Combo</td>
-          <td>{{ game.stat[game.level].best_combo_detail.gcd }}<sup> {{ game.stat[game.level].best_combo_detail.power }}</sup>
-           <mark v-show="game.stat[game.level].best_combo_detail.gcd">=</mark> {{ game.stat[game.level].best_combo }}
-          </td>
-        </tr>
-        <tr><td>Max GCD</td><td>{{ game.stat[game.level].max_gcd }}</td></tr>
-        <tr><td>Max Power</td><td>{{ game.stat[game.level].max_power }}</td></tr>
-        <tr><td>Max Turn</td><td>{{ game.stat[game.level].max_turn }}</td></tr>
-        <tr><td>Total Round</td><td>{{ game.stat[game.level].total_round }}</td></tr>
-        <tr><td colspan="2"><button class="item" :style="defaultStyle" @click="game.stat[game.level].clear()">Clear</button></td></tr>
       </table>
     </div>
     <div id="hud2" class="hud">
-      <table class="item" :style="hudStyle2" onclick="window.open('http://voids.space/')">
+      <table class="item" :style="hudStyle">
         <tr>
-          <td>Created By<br>Zero</td>
+          <td @click="display = display == 'setting' ? 'game' : 'setting'"><i class="icon-cog"></i></td>
         </tr>
       </table>
     </div>
-    <script src="fastclick.min.js"></script>
-    <script src="vue.min.js"></script>
-    <script src="cellgame.js"></script>
-    <script src="controller.js"></script>
+
+    <div class="play-field">
+      <table id="cellpanel" :style="fieldStyle" @mouseleave="onLeave">
+        <tr class="row" v-for="(row, arr) in game.cells">
+          <td class="item" v-for="(col, cell) in arr" :class="{active: cell.active}" :style="cell | style"
+            @mousedown.prevent="onDragStart(cell)"
+            @touchstart="onDragStart(cell)"
+            @mousemove.prevent="onDrag(cell)"
+            @touchmove.stop.prevent="onDrag(cell, $event)"
+            @mouseup.prevent="onDragEnd(cell)"
+            @touchend.stop.prevent="onDragEnd(cell, $event)">{{ cell | text }}
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="play-field hud" :class="{show: display == 'game' && game.gameover, hide: display != 'game' || !game.gameover}">
+      <table id="mask">
+        <tr><td>Game Over</td></tr>
+        <tr><td>
+          <button class="item" @click="game.reset()" :style="colorStyle(0, 0, 1)"><i class="icon-cw"></i></button>
+        </td></tr>
+      </table>
+    </div>
+
+    <div class="play-field hud" :class="{show: display == 'stat', hide: display != 'stat'}">
+      <table id="stat" :style="statStyle">
+        <thead>
+          <tr>
+            <td colspan="2">
+              <button class="item" :class="{active: stat_level == 2}" :style="defaultStyle" @click="stat_level = 2">{{ '2' | levelText | translate }}</button>
+              <button class="item" :class="{active: stat_level == 3}" :style="defaultStyle" @click="stat_level = 3">{{ '3' | levelText | translate }}</button>
+              <button class="item" :style="defaultStyle" @click="display = 'achievements'">{{ 'Achievements' | translate }}</button>
+            </td>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="width: 60%">{{ 'Top Score' | translate }}</td>
+            <td>{{ levelScores.max_score }}</td>
+          </tr>
+          <tr>
+            <td>{{ 'Best Combo' | translate }}</td>
+            <td>{{ levelScores.best_combo_detail.gcd }}<sup> {{ levelScores.best_combo_detail.power }}</sup>
+             <mark v-show="levelScores.best_combo_detail.gcd">=</mark> {{ levelScores.best_combo }}
+            </td>
+          </tr>
+          <tr><td>{{ 'Max GCD' | translate }}</td><td>{{ levelScores.max_gcd }}</td></tr>
+          <tr><td>{{ 'Max Power' | translate }}</td><td>{{ levelScores.max_power }}</td></tr>
+          <tr><td>{{ 'Max Turn' | translate }}</td><td>{{ levelScores.max_turn }}</td></tr>
+          <tr><td>{{ 'Total Round' | translate }}</td><td>{{ levelScores.total_round }}</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="play-field hud" :class="{show: display == 'achievements', hide: display != 'achievements'}">
+      <div id="achievements" :style="statStyle"
+        @touchstart="onHudDrag($event)"
+        @touchmove.stop.prevent="onHudDrag($event, true)">
+        <ul>
+          <li v-for="akey in game.stat.achievement.keys">
+            <span :class="{ inactive: !game.stat.achievement[akey] }">
+              <i class="icon-crown" v-show="game.stat.achievement[akey]"></i>
+              {{ game.stat.achievement[akey] ? game.stat.achievement[akey] : akey | translate }}
+              <i class="icon-crown" v-show="game.stat.achievement[akey]"></i>
+            </span>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="play-field hud" :class="{show: display == 'setting', hide: display != 'setting'}">
+      <table id="setting" :style="statStyle">
+        <tbody>
+          <tr>
+            <td width="50%">{{ 'Mode' | translate }}</td>
+            <td><button class="item" :style="defaultStyle"><i class="icon-user"></i>Single</button></td>
+          </tr>
+          <tr>
+            <td>{{ 'Difficulty' | translate }}</td>
+            <td><button class="item" :style="levelStyle" @click="game.changeLevel()">{{ game.level | levelText | translate }}</button></td>
+          </tr>
+          <tr>
+            <td>{{ 'Language' | translate }}</td>
+            <td><button class="item" :style="defaultStyle" @click="changeLang()">{{ settings.lang }}</button></td>
+          </tr>
+          <tr>
+            <td colspan="2"><button class="item" :style="defaultStyle" @click="levelScores.clear()">{{ 'Clear Score' | translate }}</button></td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="2">Created by <a target="_blank" href="http://voids.space/">Zero</a></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <script src="js/viewport-units-buggyfill.js"></script>
+    <script src="js/fastclick.min.js"></script>
+    <script src="js/vue.min.js"></script>
+    <script src="js/stat.js"></script>
+    <script src="js/lang.js"></script>
+    <script src="js/cellgame.js"></script>
+    <script src="js/controller.js"></script>
   </body>
 </html>

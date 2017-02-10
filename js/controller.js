@@ -1,5 +1,6 @@
 (function(){
 
+window.viewportUnitsBuggyfill.init();
 Origami.fastclick(document.body);
 
 var findCellFromTouch = function(event){
@@ -12,9 +13,10 @@ var hsl = function(h, s, l){
 }
 
 new Vue({
-  el: 'body',
+  el: 'html',
   data: {
     game: window.Game,
+    settings: {},
 
     // ui settings
     saturate: 80,
@@ -32,32 +34,38 @@ new Vue({
     holding: false,
     through_cells: [],
 
-    show_stat: false
+    hud_swipe_y: 0,
+
+    display: 'game',
+    stat_level: 2
   },
   computed: {
+    bodyStyle: function(){
+      return {"background-color": this.game.level == 2 ? 'white' : 'black'};
+    },
     defaultStyle: function(){
-      return this.colorStyle(0, 0, 1);
+      return this.colorStyle(0, 0, 1.3);
     },
     levelStyle: function(){
       return this.colorStyle(this.game.level == 2 ? 120 : 0, 1, 1);
     },
     hudStyle: function(){
-      return this.colorStyle(60, 1, 1.13);
-    },
-    hudStyle2: function(){
-      return this.colorStyle(110, 1, 1.13);
+      return this.game.level == 2
+        ? this.colorStyle(60, 1, 1.13)
+        : this.colorStyle(320, 0.3, 0.8);
     },
     fieldStyle: function(){
-      var primeRatio = this.game.primeRatio();
-      return {"background-color": primeRatio === null
-        ? hsl(0, 0, 85)
-        : (this.game.level == 2
-          ? hsl(170 - Math.round(primeRatio * 160), 50, 85)
-          : hsl(210 + Math.round(primeRatio * 140), 30, 30)
-        )};
+      return this.game.level == 2
+        ? this.colorStyle(110, 0.7, 1.13)
+        : this.colorStyle(240, 0.2, 0.5);
     },
     statStyle: function(){
-      return {"background-color": hsl(200, 90, 90)};
+      return this.game.level == 2
+        ? this.colorStyle(200, 1.1, 1.2)
+        : this.colorStyle(200, 0.3, 1);
+    },
+    levelScores: function(){
+      return this.game.stat[this.stat_level];
     }
   },
   filters: {
@@ -66,9 +74,24 @@ new Vue({
     },
     style: function(cell){
       return this.colorStyle(cell.hue(), cell.saturate(), cell.lightness(), cell.active);
-    }
+    },
+    levelText: function(level){
+      return level == 2 ? 'Easy' : 'Hard';
+    },
+    translate: function(str){
+      var translated = (window.translation && this.settings.lang != 'English') ? translation[str] : str;
+      return translated ? translated : str;
+    },
+  },
+  created: function(){
+    this.settings = Stat.load('setting', {
+      'lang': navigator.language.indexOf('zh') == 0 ? '中文' : 'English'
+    });
   },
   methods: {
+    changeLang: function(){
+      this.settings.set('lang', this.settings.lang == 'English' ? '中文' : 'English');
+    },
     colorStyle: function(h, s, l, invert){
       s *= this.saturate;
       l *= this.lightness;
@@ -123,7 +146,6 @@ new Vue({
           this.through_cells[0].dragged(this.through_cells.slice(1));
         }
         this.resetDrag();
-        this.game.check();
       }
     },
     onLeave: function(){
@@ -147,10 +169,14 @@ new Vue({
     onHold: function(cell){
       cell.holding();
       this.holding = true;
+    },
+    onHudDrag: function(event, move){
+      var touch = event.changedTouches ? event.changedTouches[0] : event;
+      if( move ){
+        document.getElementById('achievements').scrollTop += this.hud_swipe_y - touch.clientY;
+      }
+      this.hud_swipe_y = touch.clientY;
     }
-  },
-  created: function(){
-    this.game.reset();
   }
 });
 
